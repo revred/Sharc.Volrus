@@ -5,6 +5,43 @@
 
 use crate::math::{Coord, CoordBBox};
 use crate::tree::Tree;
+use std::collections::HashMap;
+
+/// A typed value in a grid's metadata dictionary.
+///
+/// Mirrors the polymorphic metadata entries in OpenVDB's `GridBase::Meta*` API.
+#[derive(Debug, Clone, PartialEq)]
+pub enum MetaValue {
+    /// UTF-8 string.
+    String(String),
+    /// 64-bit signed integer.
+    Int(i64),
+    /// 64-bit float.
+    Float(f64),
+    /// Boolean flag.
+    Bool(bool),
+    /// 3-component double-precision vector.
+    Vec3([f64; 3]),
+}
+
+impl From<&str> for MetaValue {
+    fn from(s: &str) -> Self { MetaValue::String(s.to_string()) }
+}
+impl From<String> for MetaValue {
+    fn from(s: String) -> Self { MetaValue::String(s) }
+}
+impl From<i64> for MetaValue {
+    fn from(v: i64) -> Self { MetaValue::Int(v) }
+}
+impl From<f64> for MetaValue {
+    fn from(v: f64) -> Self { MetaValue::Float(v) }
+}
+impl From<bool> for MetaValue {
+    fn from(v: bool) -> Self { MetaValue::Bool(v) }
+}
+impl From<[f64; 3]> for MetaValue {
+    fn from(v: [f64; 3]) -> Self { MetaValue::Vec3(v) }
+}
 
 /// Classification of the grid's semantic role.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -320,6 +357,8 @@ pub struct Grid<T: Copy + Default> {
     name: String,
     /// Semantic role classification.
     grid_class: GridClass,
+    /// User-defined metadata dictionary.
+    metadata: HashMap<String, MetaValue>,
 }
 
 impl<T: Copy + Default> Grid<T> {
@@ -331,6 +370,7 @@ impl<T: Copy + Default> Grid<T> {
             transform: VoxelTransform::uniform(voxel_size),
             name: String::new(),
             grid_class: GridClass::Unknown,
+            metadata: HashMap::new(),
         }
     }
 
@@ -343,6 +383,7 @@ impl<T: Copy + Default> Grid<T> {
             transform: VoxelTransform::uniform(vs),
             name: String::new(),
             grid_class: GridClass::Unknown,
+            metadata: HashMap::new(),
         }
     }
 
@@ -358,6 +399,7 @@ impl<T: Copy + Default> Grid<T> {
             transform: VoxelTransform::uniform(voxel_size),
             name: "sdf".to_string(),
             grid_class: GridClass::LevelSet,
+            metadata: HashMap::new(),
         }
     }
 
@@ -401,6 +443,31 @@ impl<T: Copy + Default> Grid<T> {
     pub fn set_affine_map(&mut self, map: AffineMap) {
         self.transform = VoxelTransform::uniform(map.voxel_size());
         self.affine = map;
+    }
+
+    /// Insert or update a metadata entry.
+    ///
+    /// ```rust,ignore
+    /// grid.set_meta("author", "Alice");
+    /// grid.set_meta("voxel_count", 1_000_000i64);
+    /// ```
+    pub fn set_meta(&mut self, key: impl Into<String>, value: impl Into<MetaValue>) {
+        self.metadata.insert(key.into(), value.into());
+    }
+
+    /// Retrieve a metadata value by key, or `None` if absent.
+    pub fn get_meta(&self, key: &str) -> Option<&MetaValue> {
+        self.metadata.get(key)
+    }
+
+    /// Remove a metadata entry, returning its value if it existed.
+    pub fn remove_meta(&mut self, key: &str) -> Option<MetaValue> {
+        self.metadata.remove(key)
+    }
+
+    /// Immutable view of the full metadata dictionary.
+    pub fn metadata(&self) -> &HashMap<String, MetaValue> {
+        &self.metadata
     }
 
     /// Reference to the underlying tree.

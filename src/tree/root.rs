@@ -7,6 +7,7 @@
 use crate::math::Coord;
 use crate::tree::internal::{InternalNode, INTERNAL_TOTAL_LOG2DIM};
 use crate::tree::leaf::LeafNode;
+use crate::tree::Visitor;
 use std::collections::HashMap;
 
 /// Root-level sparse container mapping tile origins to `InternalNode`s.
@@ -102,6 +103,39 @@ impl<T: Copy + Default> RootNode<T> {
     /// Iterate over all active voxels across the entire tree.
     pub fn iter_active(&self) -> impl Iterator<Item = (Coord, T)> + '_ {
         self.tiles.values().flat_map(|n| n.iter_active())
+    }
+
+    /// Iterate over inactive voxels in all allocated leaf nodes.
+    ///
+    /// Only voxels within allocated leaves are returned — the unbounded
+    /// background is not iterated.
+    pub fn iter_inactive(&self) -> impl Iterator<Item = (Coord, T)> + '_ {
+        self.leaves().flat_map(|leaf| leaf.iter_off())
+    }
+
+    /// Iterate over every voxel (active and inactive) in all allocated leaf nodes.
+    ///
+    /// Yields `(Coord, T, bool)` — coordinate, stored value, is_active.
+    pub fn iter_all_leaf_voxels(&self) -> impl Iterator<Item = (Coord, T, bool)> + '_ {
+        self.leaves().flat_map(|leaf| leaf.iter_all())
+    }
+
+    /// Walk all voxels in all allocated leaf nodes using a visitor.
+    ///
+    /// Calls `visitor.visit(coord, value, is_active)` for every voxel.
+    pub fn accept_visitor<V: Visitor<T>>(&self, visitor: &mut V) {
+        for leaf in self.leaves() {
+            for (coord, value, is_active) in leaf.iter_all() {
+                visitor.visit(coord, value, is_active);
+            }
+        }
+    }
+
+    /// Walk only active voxels using a visitor.
+    pub fn accept_active_visitor<V: Visitor<T>>(&self, visitor: &mut V) {
+        for (coord, value) in self.iter_active() {
+            visitor.visit(coord, value, true);
+        }
     }
 
     /// Deactivate a voxel at `coord`, resetting it to background.

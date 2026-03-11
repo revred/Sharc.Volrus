@@ -107,6 +107,40 @@ impl<T: Copy + Default> LeafNode<T> {
         &mut self.values
     }
 
+    /// Iterate over inactive voxels in this leaf, yielding `(Coord, T)` pairs.
+    ///
+    /// Inactive voxels store the background value (set by `set_inactive`).
+    /// Only voxels within this allocated leaf are returned — the unbounded
+    /// background space is not iterated.
+    pub fn iter_off(&self) -> impl Iterator<Item = (Coord, T)> + '_ {
+        let origin = self.origin;
+        (0usize..512).filter_map(move |off| {
+            let is_active = (self.active[off / 64] >> (off % 64)) & 1 == 1;
+            if !is_active {
+                let x = (off >> 6) as i32;
+                let y = ((off >> 3) & 0x7) as i32;
+                let z = (off & 0x7) as i32;
+                Some((Coord::new(origin.x + x, origin.y + y, origin.z + z), self.values[off]))
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Iterate over ALL 512 voxels in this leaf, yielding `(Coord, T, bool)` triples.
+    ///
+    /// The `bool` is `true` when the voxel is active.
+    pub fn iter_all(&self) -> impl Iterator<Item = (Coord, T, bool)> + '_ {
+        let origin = self.origin;
+        (0usize..512).map(move |off| {
+            let is_active = (self.active[off / 64] >> (off % 64)) & 1 == 1;
+            let x = (off >> 6) as i32;
+            let y = ((off >> 3) & 0x7) as i32;
+            let z = (off & 0x7) as i32;
+            (Coord::new(origin.x + x, origin.y + y, origin.z + z), self.values[off], is_active)
+        })
+    }
+
     /// Iterate over all active voxels, yielding `(Coord, T)` pairs.
     pub fn iter_active(&self) -> impl Iterator<Item = (Coord, T)> + '_ {
         let origin = self.origin;
