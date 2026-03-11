@@ -1,8 +1,8 @@
 [package]
 name = "sharc_volrus"
 version = "0.1.0"
-edition = "2024"
-license = "Apache-2.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
 description = "Rust bootstrap of OpenVDB-style sparse volumetric structures for the Sharc ecosystem."
 repository = "https://github.com/revred/Sharc.Volrus"
 
@@ -11,4 +11,9 @@ name = "sharc_volrus"
 path = "src/lib.rs"
 
 [dependencies]
+rayon = { version = "1", optional = true }
+
+[features]
+default = []
+parallel = ["rayon"]
 
